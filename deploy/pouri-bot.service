@@ -1,0 +1,15 @@
+[Unit]
+Description=Pouri Telegram FX Bot
+After=network.target
+
+[Service]
+Type=simple
+User=pouri
+WorkingDirectory=/opt/pouri
+EnvironmentFile=/opt/pouri/.env
+ExecStart=/opt/pouri/.venv/bin/python /opt/pouri/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

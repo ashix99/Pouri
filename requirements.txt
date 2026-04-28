@@ -1,0 +1,4 @@
+Telethon==1.43.0
+reportlab==4.2.2
+arabic-reshaper==3.0.0
+python-bidi==0.4.2

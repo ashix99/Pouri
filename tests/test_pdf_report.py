@@ -18,7 +18,7 @@ class PdfReportTests(unittest.TestCase):
         4m Sara 151800
         1.75m Mehdi 150400
 
-        RATE_DAY: 152600
+        FEE: 152600
         """
         result = analyze_message(sample)
         pdf_path = build_report_pdf(result)

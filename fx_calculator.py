@@ -23,7 +23,7 @@ SPACE_PATTERN = re.compile(r"\s+")
 THOUSANDS_SEPARATOR_PATTERN = re.compile(r"(?<=\d)[,.\u066C\u2009\u202F ](?=\d{3}(?:\D|$))")
 AMOUNT_TOKEN = re.compile(r"(?P<val>\d+(?:[.,٫]\d+)?)(?P<suf>[mM\u0645])")
 INT_NUM = re.compile(r"\d+")
-RATE_LINE = re.compile(r"RATE_DAY\s*[:=]\s*([0-9][0-9,\u066C\u2009\u202F ]*)", re.IGNORECASE)
+FEE_LINE = re.compile(r"FEE\s*[:=]\s*([0-9][0-9,\u066C\u2009\u202F ]*)", re.IGNORECASE)
 SELL_HEADER = re.compile(r"^(?:فروش|sell)\s*:?\s*$", re.IGNORECASE)
 BUY_HEADER = re.compile(r"^(?:خرید|buy)\s*:?\s*$", re.IGNORECASE)
 
@@ -122,9 +122,9 @@ def sanitize_name(value: str) -> str:
     return SPACE_PATTERN.sub(" ", value).strip()
 
 
-def parse_rate_day(raw_message: str) -> Decimal | None:
+def parse_fee(raw_message: str) -> Decimal | None:
     normalized = collapse_numeric_separators(to_latin_digits(raw_message))
-    match = RATE_LINE.search(normalized)
+    match = FEE_LINE.search(normalized)
     if not match:
         return None
 
@@ -143,7 +143,7 @@ def extract_report_date(raw_message: str) -> str | None:
         normalized = normalize_text(stripped)
         if detect_section(normalized):
             return None
-        if RATE_LINE.search(collapse_numeric_separators(normalized)):
+        if FEE_LINE.search(collapse_numeric_separators(normalized)):
             return None
         return normalized
 
@@ -169,7 +169,7 @@ def split_sections(lines: list[str]) -> list[tuple[str, int, str]]:
             continue
 
         normalized = normalize_text(stripped)
-        if RATE_LINE.search(collapse_numeric_separators(normalized)):
+        if FEE_LINE.search(collapse_numeric_separators(normalized)):
             continue
 
         section_match = detect_section(normalized)
@@ -271,7 +271,7 @@ def analyze_message(raw_message: str) -> CalculationResult:
 
     normalized_message = normalize_text(raw_message)
     report_date = extract_report_date(raw_message)
-    rate_day = parse_rate_day(raw_message)
+    rate_day = parse_fee(raw_message)
     items = split_sections(raw_message.splitlines())
 
     entries: list[ParsedEntry] = []
@@ -345,7 +345,7 @@ def analyze_message(raw_message: str) -> CalculationResult:
 
     if rate_day is not None and not halted:
         if rate_day <= 0:
-            raise UserInputError("RATE_DAY باید بزرگ‌تر از صفر باشد.")
+            raise UserInputError("FEE باید بزرگ‌تر از صفر باشد.")
 
         for entry in entries:
             actual = entry.amount_k / entry.rate
@@ -440,13 +440,13 @@ def render_result(result: CalculationResult) -> str:
 
     if result.rate_day is None:
         parts.append("")
-        parts.append("نرخ روز پیدا نشد. نرخ روز را می‌دهی تا جدول کامل را بسازم؟")
+        parts.append("FEE پیدا نشد. FEE را می‌دهی تا جدول کامل را بسازم؟")
         return "\n".join(parts)
 
     parts.append("")
-    parts.append(f"RATE_DAY: {format_decimal(result.rate_day)}")
+    parts.append(f"FEE: {format_decimal(result.rate_day)}")
     parts.append("")
-    parts.append("جدول کامل (با نرخ روز):")
+    parts.append("جدول کامل (با FEE):")
     parts.append(render_stage_two_table(result.stage_two_rows))
     parts.append("")
     parts.append("جدول تفکیکی وضعیت‌ها:")
@@ -532,12 +532,12 @@ def strip_trailing_zeros(value: Decimal) -> str:
     return rendered
 
 
-def extract_rate_day_only(message_text: str) -> Decimal | None:
+def extract_fee_only(message_text: str) -> Decimal | None:
     normalized = normalize_text(message_text)
     if "\n" in normalized:
         return None
 
-    match = RATE_LINE.fullmatch(collapse_numeric_separators(normalized))
+    match = FEE_LINE.fullmatch(collapse_numeric_separators(normalized))
     if not match:
         return None
 

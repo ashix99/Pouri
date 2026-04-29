@@ -3,27 +3,27 @@ import unittest
 
 from fx_calculator import (
     analyze_message,
-    extract_rate_day_only,
+    extract_fee_only,
     extract_report_date,
     format_decimal,
     normalize_text,
     parse_line,
-    parse_rate_day,
+    parse_fee,
     render_result,
 )
 
 
 class FxCalculatorTests(unittest.TestCase):
     def test_normalize_text_converts_digits_and_keeps_lines(self) -> None:
-        raw = "فروش\n۶م علی ۱۵۳٬۲۰۰\nRATE_DAY: ۱۵۲٬۶۰۰"
+        raw = "فروش\n۶م علی ۱۵۳٬۲۰۰\nFEE: ۱۵۲٬۶۰۰"
         normalized = normalize_text(raw)
 
         self.assertIn("6م", normalized)
         self.assertIn("153٬200", normalized)
         self.assertIn("152٬600", normalized)
 
-    def test_parse_rate_day_handles_separators(self) -> None:
-        rate_day = parse_rate_day("RATE_DAY: 152,600")
+    def test_parse_fee_handles_separators(self) -> None:
+        rate_day = parse_fee("FEE: 152,600")
         self.assertEqual(rate_day, Decimal("152600"))
 
     def test_parse_line_extracts_amount_name_and_rate(self) -> None:
@@ -53,7 +53,7 @@ class FxCalculatorTests(unittest.TestCase):
         self.assertTrue(result.needs_rate_day)
         self.assertIsNone(result.rate_day)
         self.assertIn("مرحله اول", rendered)
-        self.assertIn("نرخ روز را می‌دهی", rendered)
+        self.assertIn("FEE را می‌دهی", rendered)
         self.assertNotIn("مجموع مقدار فروش واقعی", rendered)
 
     def test_analyze_message_with_rate_day_builds_stage_two(self) -> None:
@@ -67,7 +67,7 @@ class FxCalculatorTests(unittest.TestCase):
         خرید
         4m سارا 151800
 
-        RATE_DAY: 152600
+        FEE: 152600
         """
         result = analyze_message(text)
         rendered = render_result(result)
@@ -93,8 +93,8 @@ class FxCalculatorTests(unittest.TestCase):
         self.assertTrue(result.halted)
         self.assertIn("پردازش در همین مرحله متوقف شد", rendered)
 
-    def test_extract_rate_day_only(self) -> None:
-        rate_day = extract_rate_day_only("RATE_DAY: 152600")
+    def test_extract_fee_only(self) -> None:
+        rate_day = extract_fee_only("FEE: 152600")
         self.assertEqual(rate_day, Decimal("152600"))
 
     def test_format_decimal_is_fixed_point(self) -> None:

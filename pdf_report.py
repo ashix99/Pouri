@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import tempfile
+import urllib.request
 import uuid
 
 import arabic_reshaper
@@ -27,19 +28,34 @@ from fx_calculator import (
 
 FONT_NAME = "PouriReportFont"
 FONT_NAME_BOLD = "PouriReportFontBold"
+PROJECT_ROOT = Path(__file__).resolve().parent
+FONTS_DIR = PROJECT_ROOT / "fonts"
+DOWNLOADED_REGULAR_FONT = FONTS_DIR / "Vazirmatn-Regular.ttf"
+DOWNLOADED_BOLD_FONT = FONTS_DIR / "Vazirmatn-Bold.ttf"
+DOWNLOADED_REGULAR_URL = "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Regular.ttf"
+DOWNLOADED_BOLD_URL = "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
 FONT_CANDIDATES = (
     lambda: os.getenv("PDF_FONT_PATH", "").strip(),
-    lambda: str((Path(__file__).resolve().parent / "fonts" / "YekanBakh-Regular.ttf")),
-    lambda: str((Path(__file__).resolve().parent / "fonts" / "YekanBakhFaNum-Regular.ttf")),
+    lambda: str(PROJECT_ROOT / "fonts" / "YekanBakh-Regular.ttf"),
+    lambda: str(PROJECT_ROOT / "fonts" / "YekanBakhFaNum-Regular.ttf"),
+    lambda: str(DOWNLOADED_REGULAR_FONT),
     lambda: r"C:\Windows\Fonts\tahoma.ttf",
     lambda: r"C:\Windows\Fonts\arial.ttf",
+    lambda: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    lambda: "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+    lambda: "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+    lambda: "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
 )
 FONT_BOLD_CANDIDATES = (
     lambda: os.getenv("PDF_FONT_BOLD_PATH", "").strip(),
-    lambda: str((Path(__file__).resolve().parent / "fonts" / "YekanBakh-Bold.ttf")),
-    lambda: str((Path(__file__).resolve().parent / "fonts" / "YekanBakhFaNum-Bold.ttf")),
+    lambda: str(PROJECT_ROOT / "fonts" / "YekanBakh-Bold.ttf"),
+    lambda: str(PROJECT_ROOT / "fonts" / "YekanBakhFaNum-Bold.ttf"),
+    lambda: str(DOWNLOADED_BOLD_FONT),
     lambda: r"C:\Windows\Fonts\tahomabd.ttf",
     lambda: r"C:\Windows\Fonts\arialbd.ttf",
+    lambda: "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    lambda: "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
+    lambda: "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
 )
 
 
@@ -85,7 +101,7 @@ def build_report_pdf(result: CalculationResult) -> str:
             [
                 Spacer(1, 4 * mm),
                 Paragraph(
-                    shape_text(f"نرخ روز: {format_decimal(result.rate_day)}"),
+                    shape_text(f"FEE: {format_decimal(result.rate_day)}"),
                     styles["body"],
                 ),
             ]
@@ -95,7 +111,7 @@ def build_report_pdf(result: CalculationResult) -> str:
             [
                 Spacer(1, 4 * mm),
                 Paragraph(
-                    shape_text("نرخ روز در پیام نبود و جدول کامل هنوز ساخته نشده است."),
+                    shape_text("FEE در پیام نبود و جدول کامل هنوز ساخته نشده است."),
                     styles["body"],
                 ),
             ]
@@ -124,7 +140,7 @@ def build_report_pdf(result: CalculationResult) -> str:
         story.extend(
             [
                 Spacer(1, 5 * mm),
-                Paragraph(shape_text("جدول کامل با نرخ روز"), styles["section"]),
+                Paragraph(shape_text("جدول کامل با FEE"), styles["section"]),
                 Spacer(1, 2 * mm),
                 build_stage_two_table(result.stage_two_rows, styles),
                 Spacer(1, 4 * mm),
@@ -139,27 +155,54 @@ def build_report_pdf(result: CalculationResult) -> str:
 
 
 def register_fonts() -> None:
-    if FONT_NAME not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont(FONT_NAME, resolve_font_path(FONT_CANDIDATES)))
-    if FONT_NAME_BOLD not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont(FONT_NAME_BOLD, resolve_font_path(FONT_BOLD_CANDIDATES)))
+    regular_font = resolve_font_path(FONT_CANDIDATES)
+    bold_font = resolve_font_path(FONT_BOLD_CANDIDATES)
+
+    if regular_font is None:
+        regular_font = download_font_if_needed(DOWNLOADED_REGULAR_FONT, DOWNLOADED_REGULAR_URL)
+    if bold_font is None:
+        bold_font = download_font_if_needed(DOWNLOADED_BOLD_FONT, DOWNLOADED_BOLD_URL)
+
+    if regular_font and FONT_NAME not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(FONT_NAME, regular_font))
+    if bold_font and FONT_NAME_BOLD not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(FONT_NAME_BOLD, bold_font))
 
 
-def resolve_font_path(candidates: tuple) -> str:
+def resolve_font_path(candidates: tuple) -> str | None:
     for factory in candidates:
         path = factory()
         if path and Path(path).exists():
             return path
-    raise FileNotFoundError("No suitable font file found for PDF generation.")
+    return None
+
+
+def download_font_if_needed(target_path: Path, url: str) -> str | None:
+    try:
+        if target_path.exists():
+            return str(target_path)
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = target_path.with_suffix(target_path.suffix + ".tmp")
+
+        with urllib.request.urlopen(url, timeout=30) as response:
+            temp_path.write_bytes(response.read())
+
+        temp_path.replace(target_path)
+        return str(target_path)
+    except Exception:
+        return None
 
 
 def build_styles() -> dict[str, ParagraphStyle]:
     sample = getSampleStyleSheet()
+    regular_font_name = FONT_NAME if FONT_NAME in pdfmetrics.getRegisteredFontNames() else "Helvetica"
+    bold_font_name = FONT_NAME_BOLD if FONT_NAME_BOLD in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
     return {
         "title": ParagraphStyle(
             "PouriTitle",
             parent=sample["Heading1"],
-            fontName=FONT_NAME_BOLD,
+            fontName=bold_font_name,
             fontSize=16,
             leading=20,
             alignment=TA_RIGHT,
@@ -168,7 +211,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "section": ParagraphStyle(
             "PouriSection",
             parent=sample["Heading2"],
-            fontName=FONT_NAME_BOLD,
+            fontName=bold_font_name,
             fontSize=11,
             leading=14,
             alignment=TA_RIGHT,
@@ -177,7 +220,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "subtitle": ParagraphStyle(
             "PouriSubtitle",
             parent=sample["BodyText"],
-            fontName=FONT_NAME_BOLD,
+            fontName=bold_font_name,
             fontSize=10,
             leading=13,
             alignment=TA_RIGHT,
@@ -186,7 +229,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "body": ParagraphStyle(
             "PouriBody",
             parent=sample["BodyText"],
-            fontName=FONT_NAME,
+            fontName=regular_font_name,
             fontSize=9,
             leading=12,
             alignment=TA_RIGHT,
@@ -194,7 +237,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "cell_rtl": ParagraphStyle(
             "PouriCellRtl",
             parent=sample["BodyText"],
-            fontName=FONT_NAME,
+            fontName=regular_font_name,
             fontSize=8.5,
             leading=10.5,
             alignment=TA_RIGHT,
@@ -202,7 +245,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "cell_center": ParagraphStyle(
             "PouriCellCenter",
             parent=sample["BodyText"],
-            fontName=FONT_NAME,
+            fontName=regular_font_name,
             fontSize=8.5,
             leading=10.5,
             alignment=TA_CENTER,
@@ -210,7 +253,7 @@ def build_styles() -> dict[str, ParagraphStyle]:
         "warning": ParagraphStyle(
             "PouriWarning",
             parent=sample["BodyText"],
-            fontName=FONT_NAME,
+            fontName=regular_font_name,
             fontSize=9,
             leading=12,
             alignment=TA_RIGHT,

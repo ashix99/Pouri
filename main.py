@@ -11,7 +11,7 @@ from telethon import TelegramClient, events
 from fx_calculator import (
     UserInputError,
     analyze_message,
-    extract_rate_day_only,
+    extract_fee_only,
     render_result,
 )
 from pdf_report import build_report_pdf
@@ -31,7 +31,7 @@ START_MESSAGE = """سلام، به ربات پوری خوش آمدی.
 - مجموع خرید واقعی
 - سود/ضرر کلی
 
-2. اگر `RATE_DAY` داخل پیام باشد، مرحله دوم هم ساخته می‌شود:
+2. اگر `FEE` داخل پیام باشد، مرحله دوم هم ساخته می‌شود:
 - جدول کامل هر ردیف
 - اختلاف، ساده‌شده، وضعیت
 - جمع بدهکار/بستانکار برای خرید و فروش
@@ -46,10 +46,10 @@ START_MESSAGE = """سلام، به ربات پوری خوش آمدی.
 4م سارا 151800
 1.75m مهدی 150400
 
-RATE_DAY: 152600
+FEE: 152600
 ```
 
-اگر `RATE_DAY` را نگذاری، ربات مرحله اول را می‌فرستد و از تو می‌خواهد نرخ روز را جداگانه بفرستی."""
+اگر `FEE` را نگذاری، ربات مرحله اول را می‌فرستد و از تو می‌خواهد FEE را جداگانه بفرستی."""
 
 HELP_MESSAGE = """راهنما:
 
@@ -58,7 +58,7 @@ HELP_MESSAGE = """راهنما:
 - هر ردیف باید این سه بخش را داشته باشد:
   مقدار با `m` یا `م` + اسم + نرخ فی ۵ یا ۶ رقمی
 - اگر خطی معتبر نباشد، رد می‌شود و دلیلش گزارش می‌شود.
-- اگر فقط `RATE_DAY: 152600` بفرستی و قبلش لیست بدون نرخ روز داده باشی، مرحله دوم با همان لیست کامل می‌شود."""
+- اگر فقط `FEE: 152600` بفرستی و قبلش لیست بدون FEE داده باشی، مرحله دوم با همان لیست کامل می‌شود."""
 
 PENDING_MESSAGES: dict[int, str] = {}
 
@@ -197,14 +197,14 @@ def build_error_message(error: Exception) -> str:
     return "در پردازش پیام خطای غیرمنتظره رخ داد. فرمت ورودی را بررسی کن و دوباره بفرست."
 
 
-def merge_with_rate_day(base_message: str, rate_message: str) -> str:
-    return base_message.rstrip() + "\n" + rate_message.strip()
+def merge_with_fee(base_message: str, fee_message: str) -> str:
+    return base_message.rstrip() + "\n" + fee_message.strip()
 
 
 def choose_response_kind(result_text: str) -> str:
     if "ورودی قابل پردازش نبود" in result_text or "خطای غیرمنتظره" in result_text:
         return "error"
-    if "نرخ روز را می‌دهی" in result_text or "ردیف‌های ردشده/مشکوک" in result_text:
+    if "FEE را می‌دهی" in result_text or "ردیف‌های ردشده/مشکوک" in result_text:
         return "warning"
     return "success"
 
@@ -260,18 +260,18 @@ async def main() -> None:
         user_id = event.sender_id or 0
 
         try:
-            rate_day_only = extract_rate_day_only(message_text)
-            if rate_day_only is not None:
+            fee_only = extract_fee_only(message_text)
+            if fee_only is not None:
                 pending_message = PENDING_MESSAGES.get(user_id)
                 if pending_message is None:
                     await send_feedback(
                         event,
-                        "برای این نرخ روز، لیست معلقی پیدا نکردم. اول لیست خرید و فروش را بفرست.",
+                        "برای این FEE، لیست معلقی پیدا نکردم. اول لیست خرید و فروش را بفرست.",
                         "warning",
                     )
                     return
 
-                combined_message = merge_with_rate_day(pending_message, message_text)
+                combined_message = merge_with_fee(pending_message, message_text)
                 result = analyze_message(combined_message)
                 result_text = render_result(result)
                 pdf_path = try_build_pdf_report(result)

@@ -34,6 +34,22 @@ class FxCalculatorTests(unittest.TestCase):
         self.assertEqual(name, "رضا")
         self.assertEqual(rate, Decimal("149950"))
 
+    def test_parse_line_accepts_six_digit_rate_above_old_limit(self) -> None:
+        amount_k, name, rate, reason = parse_line("۱م نرخ تسویه ۲۰۰۹۵۰")
+
+        self.assertIsNone(reason)
+        self.assertEqual(amount_k, Decimal("1000"))
+        self.assertEqual(name, "نرخ تسویه")
+        self.assertEqual(rate, Decimal("200950"))
+
+    def test_parse_line_rejects_rate_longer_than_six_digits(self) -> None:
+        amount_k, name, rate, reason = parse_line("1m رضا 1000000")
+
+        self.assertIsNone(amount_k)
+        self.assertIsNone(name)
+        self.assertIsNone(rate)
+        self.assertEqual(reason, "rate_not_found_or_out_of_range")
+
     def test_extract_report_date_uses_first_non_empty_line_before_sections(self) -> None:
         date_line = extract_report_date("دوشنبه ۷ برج\n\nفروش\n6m علی 153200")
         self.assertEqual(date_line, "دوشنبه 7 برج")

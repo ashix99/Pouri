@@ -16,7 +16,7 @@ PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
 ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 RATE_MIN = 10000
-RATE_MAX = 200000
+RATE_MAX = 999999
 
 CTRL_WS_PATTERN = re.compile(r"[\u200C\u200D\u2060\u00A0]")
 SPACE_PATTERN = re.compile(r"\s+")
@@ -31,7 +31,7 @@ REASON_MESSAGES = {
     "empty": "خط خالی است.",
     "amount_not_found": "مقدار با پسوند m/م پیدا نشد.",
     "amount_not_decimal": "مقدار عددی معتبر نیست.",
-    "rate_not_found_or_out_of_range": "نرخ فی ۵ یا ۶ رقمی در بازه 10000 تا 200000 پیدا نشد.",
+    "rate_not_found_or_out_of_range": "نرخ فی ۵ یا ۶ رقمی پیدا نشد.",
     "name_invalid": "اسم فرد بین مقدار و نرخ پیدا نشد.",
     "row_sanity_failed": "سنیتی‌چک بازسازی مبلغ از مقدار و نرخ رد شد.",
 }
